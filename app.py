@@ -1,25 +1,10 @@
-import os
 from flask import Flask, render_template, jsonify, request
-from flask_sqlalchemy import SQLAlchemy
 import requests
+from requests.auth import HTTPBasicAuth
 
 app = Flask(__name__)
 
-# Set up database
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///chat_history.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
-
-# Model for storing chat history
-class ChatHistory(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_message = db.Column(db.String(500))
-    bot_response = db.Column(db.String(500))
-
-    def __repr__(self):
-        return f"ChatHistory('{self.user_message}', '{self.bot_response}')"
-
-# DevOps tool options
+# Tool options and sub-options
 tool_options = {
     'jenkins': {
         'options': ['Build Job', 'Pipeline', 'Plugins'],
@@ -47,60 +32,93 @@ tool_options = {
     }
 }
 
-# Route to render the chatbot interface
+# Jenkins API Integration
+JENKINS_URL = "http://your-jenkins-server-url"
+JENKINS_API_TOKEN = "your-api-token"
+JENKINS_USER = "your-jenkins-username"
+
+def get_jenkins_jobs():
+    url = f"{JENKINS_URL}/api/json"
+    response = requests.get(url, auth=(JENKINS_USER, JENKINS_API_TOKEN))
+    if response.status_code == 200:
+        jobs = response.json().get('jobs', [])
+        return [job['name'] for job in jobs]
+    return []
+
+# Jira API Integration
+JIRA_URL = "https://your-jira-instance.atlassian.net"
+JIRA_EMAIL = "your-email"
+JIRA_API_TOKEN = "your-jira-api-token"
+
+def get_jira_projects():
+    url = f"{JIRA_URL}/rest/api/3/project"
+    auth = HTTPBasicAuth(JIRA_EMAIL, JIRA_API_TOKEN)
+    response = requests.get(url, auth=auth)
+    if response.status_code == 200:
+        projects = response.json()
+        return [project['name'] for project in projects]
+    return []
+
+# Bitbucket API Integration
+BITBUCKET_URL = "https://api.bitbucket.org/2.0"
+BITBUCKET_USER = "your-bitbucket-username"
+BITBUCKET_APP_PASSWORD = "your-app-password"
+
+def get_bitbucket_repositories():
+    url = f"{BITBUCKET_URL}/repositories/{BITBUCKET_USER}"
+    response = requests.get(url, auth=(BITBUCKET_USER, BITBUCKET_APP_PASSWORD))
+    if response.status_code == 200:
+        repos = response.json().get('values', [])
+        return [repo['name'] for repo in repos]
+    return []
+
+# Confluence API Integration
+CONFLUENCE_URL = "https://your-confluence-instance.atlassian.net/wiki"
+CONFLUENCE_EMAIL = "your-email"
+CONFLUENCE_API_TOKEN = "your-confluence-api-token"
+
+def get_confluence_pages(space_key):
+    url = f"{CONFLUENCE_URL}/rest/api/content"
+    params = {"spaceKey": space_key, "limit": 50}
+    auth = HTTPBasicAuth(CONFLUENCE_EMAIL, CONFLUENCE_API_TOKEN)
+    response = requests.get(url, auth=auth, params=params)
+    if response.status_code == 200:
+        pages = response.json().get('results', [])
+        return [page['title'] for page in pages]
+    return []
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
-# API endpoint to handle tool selection and provide tool-specific options
-@app.route('/get_options', methods=['POST'])
-def get_options():
-    tool = request.json.get('tool')
-    if tool in tool_options:
-        return jsonify({'options': tool_options[tool]['options']})
-    else:
-        return jsonify({'options': []})
-
-# API endpoint to get sub-options for a specific choice
-@app.route('/get_sub_options', methods=['POST'])
-def get_sub_options():
-    tool = request.json.get('tool')
-    choice = request.json.get('choice')
-    if tool in tool_options and choice in tool_options[tool]:
-        return jsonify({'sub_options': tool_options[tool][choice]})
-    else:
-        return jsonify({'sub_options': []})
-
-# API endpoint to save chat history
-@app.route('/save_chat', methods=['POST'])
-def save_chat():
-    user_message = request.json.get('user_message')
-    bot_response = request.json.get('bot_response')
-    new_chat = ChatHistory(user_message=user_message, bot_response=bot_response)
-    db.session.add(new_chat)
-    db.session.commit()
-    return jsonify({"status": "success"})
-
-# API endpoint to fetch chat history
-@app.route('/chat_history', methods=['GET'])
-def chat_history():
-    history = ChatHistory.query.all()
-    chat_data = [{"user": chat.user_message, "bot": chat.bot_response} for chat in history]
-    return jsonify({"history": chat_data})
-
-# Function to simulate bot response (e.g., connect to APIs like Jenkins, Jira, etc.)
-def generate_bot_response(message):
-    # Simulate bot response based on message (can be replaced with actual API calls)
-    return f"Bot response to: {message}"
-
-# Endpoint to handle messages sent to the chatbot
-@app.route('/send_message', methods=['POST'])
-def send_message():
-    user_message = request.json.get('message')
+@app.route('/get_response', methods=['POST'])
+def get_response():
+    user_message = request.json['message'].lower()
     bot_response = generate_bot_response(user_message)
-    save_chat(user_message, bot_response)
     return jsonify({'response': bot_response})
 
+def generate_bot_response(message):
+    if "jenkins" in message:
+        if "list jobs" in message:
+            jobs = get_jenkins_jobs()
+            return f"Here are the Jenkins jobs: {', '.join(jobs)}" if jobs else "No Jenkins jobs found."
+
+    elif "jira" in message:
+        if "projects" in message:
+            projects = get_jira_projects()
+            return f"Here are the Jira projects: {', '.join(projects)}" if projects else "No Jira projects found."
+
+    elif "bitbucket" in message:
+        if "repositories" in message:
+            repos = get_bitbucket_repositories()
+            return f"Here are your Bitbucket repositories: {', '.join(repos)}" if repos else "No Bitbucket repositories found."
+
+    elif "confluence" in message:
+        if "pages" in message:
+            pages = get_confluence_pages("SPACE_KEY")  # replace with actual space key
+            return f"Here are the Confluence pages: {', '.join(pages)}" if pages else "No Confluence pages found."
+
+    return "I'm sorry, I couldn't understand your request. Please try again."
+
 if __name__ == '__main__':
-    db.create_all()  # Creates the database file
     app.run(debug=True)
