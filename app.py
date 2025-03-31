@@ -1,10 +1,25 @@
-import sqlite3
+import os
 from flask import Flask, render_template, jsonify, request
+from flask_sqlalchemy import SQLAlchemy
 import requests
 
 app = Flask(__name__)
 
-# Tool options and sub-options
+# Set up database
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///chat_history.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+
+# Model for storing chat history
+class ChatHistory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_message = db.Column(db.String(500))
+    bot_response = db.Column(db.String(500))
+
+    def __repr__(self):
+        return f"ChatHistory('{self.user_message}', '{self.bot_response}')"
+
+# DevOps tool options
 tool_options = {
     'jenkins': {
         'options': ['Build Job', 'Pipeline', 'Plugins'],
@@ -32,15 +47,6 @@ tool_options = {
     }
 }
 
-# Database setup
-def init_db():
-    conn = sqlite3.connect('chat_history.db')
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS chat_history
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, user_message TEXT, bot_response TEXT)''')
-    conn.commit()
-    conn.close()
-
 # Route to render the chatbot interface
 @app.route('/')
 def index():
@@ -51,9 +57,7 @@ def index():
 def get_options():
     tool = request.json.get('tool')
     if tool in tool_options:
-        return jsonify({
-            'options': tool_options[tool]['options']
-        })
+        return jsonify({'options': tool_options[tool]['options']})
     else:
         return jsonify({'options': []})
 
@@ -63,64 +67,40 @@ def get_sub_options():
     tool = request.json.get('tool')
     choice = request.json.get('choice')
     if tool in tool_options and choice in tool_options[tool]:
-        return jsonify({
-            'sub_options': tool_options[tool][choice]
-        })
+        return jsonify({'sub_options': tool_options[tool][choice]})
     else:
         return jsonify({'sub_options': []})
 
-# API endpoint for chatbot to handle user messages and fetch bot response
+# API endpoint to save chat history
+@app.route('/save_chat', methods=['POST'])
+def save_chat():
+    user_message = request.json.get('user_message')
+    bot_response = request.json.get('bot_response')
+    new_chat = ChatHistory(user_message=user_message, bot_response=bot_response)
+    db.session.add(new_chat)
+    db.session.commit()
+    return jsonify({"status": "success"})
+
+# API endpoint to fetch chat history
+@app.route('/chat_history', methods=['GET'])
+def chat_history():
+    history = ChatHistory.query.all()
+    chat_data = [{"user": chat.user_message, "bot": chat.bot_response} for chat in history]
+    return jsonify({"history": chat_data})
+
+# Function to simulate bot response (e.g., connect to APIs like Jenkins, Jira, etc.)
+def generate_bot_response(message):
+    # Simulate bot response based on message (can be replaced with actual API calls)
+    return f"Bot response to: {message}"
+
+# Endpoint to handle messages sent to the chatbot
 @app.route('/send_message', methods=['POST'])
 def send_message():
     user_message = request.json.get('message')
     bot_response = generate_bot_response(user_message)
-    store_chat_history(user_message, bot_response)
+    save_chat(user_message, bot_response)
     return jsonify({'response': bot_response})
 
-# Function to generate a bot response based on the user input
-def generate_bot_response(user_message):
-    # Here, you can implement your chatbot logic based on user input.
-    # For now, we'll simply return a greeting message or a message based on the tool selected.
-    user_message = user_message.lower()
-    
-    if "hi" in user_message or "hello" in user_message:
-        return "Hello! How can I assist you today? Choose a tool: Jenkins, Jira, Bitbucket, or Confluence."
-    elif "jenkins" in user_message:
-        return "You have selected Jenkins. Please choose an option: Build Job, Pipeline, or Plugins."
-    elif "jira" in user_message:
-        return "You have selected Jira. Please choose an option: Issues, Boards, or Projects."
-    elif "bitbucket" in user_message:
-        return "You have selected Bitbucket. Please choose an option: Repositories, Pull Requests, or Branches."
-    elif "confluence" in user_message:
-        return "You have selected Confluence. Please choose an option: Spaces, Pages, or Templates."
-    else:
-        return "Sorry, I didn't understand that. Please select a valid tool: Jenkins, Jira, Bitbucket, or Confluence."
-
-# Function to store chat history in the database
-def store_chat_history(user_message, bot_response):
-    conn = sqlite3.connect('chat_history.db')
-    c = conn.cursor()
-    c.execute("INSERT INTO chat_history (user_message, bot_response) VALUES (?, ?)", 
-              (user_message, bot_response))
-    conn.commit()
-    conn.close()
-
-# API endpoint to retrieve chat history
-@app.route('/chat_history', methods=['GET'])
-def chat_history():
-    conn = sqlite3.connect('chat_history.db')
-    c = conn.cursor()
-    c.execute("SELECT user_message, bot_response FROM chat_history ORDER BY id DESC LIMIT 10")
-    rows = c.fetchall()
-    conn.close()
-    
-    history = []
-    for row in rows:
-        history.append({'user': row[0], 'bot': row[1]})
-    
-    return jsonify({'history': history})
-
-# Main function to run the app
 if __name__ == '__main__':
-    init_db()
+    db.create_all()  # Creates the database file
     app.run(debug=True)

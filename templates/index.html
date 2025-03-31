@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DevOps Chatbot</title>
-    <!-- Bootstrap 4.5.0 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
     <style>
@@ -73,42 +72,6 @@
             border-radius: 0 0 10px 10px;
         }
 
-        /* Chat history container */
-        .history-btn {
-            position: absolute;
-            top: 50%;
-            right: 10px;
-            background-color: #28a745;
-            color: white;
-            border-radius: 50%;
-            font-size: 18px;
-            cursor: pointer;
-            padding: 10px;
-        }
-
-        .history-container {
-            position: fixed;
-            top: 100px;
-            right: 20px;
-            width: 300px;
-            max-height: 400px;
-            background-color: white;
-            border: 1px solid #ccc;
-            border-radius: 10px;
-            overflow-y: scroll;
-            display: none;
-            z-index: 9999;
-        }
-
-        .history-item {
-            padding: 10px;
-            border-bottom: 1px solid #f1f1f1;
-        }
-
-        .history-item:last-child {
-            border-bottom: none;
-        }
-
     </style>
 </head>
 <body>
@@ -122,19 +85,11 @@
     <div id="chatbot-container">
         <div id="chatbox"></div>
         <input type="text" id="user-input" placeholder="Type a message..." onkeydown="handleKeyDown(event)">
-        <div class="history-btn" onclick="toggleChatHistory()">History</div>
     </div>
 
-    <!-- Chat History -->
-    <div class="history-container" id="history-container">
-        <div id="chat-history"></div>
-    </div>
-
-    <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script>
         var isChatbotOpen = false;
-        var isHistoryOpen = false;
 
         // Toggle the chatbot visibility
         function toggleChatbot() {
@@ -144,15 +99,6 @@
                 setTimeout(() => { document.getElementById("user-input").focus(); }, 100);
             } else {
                 document.getElementById("chatbot-container").style.display = 'none';
-            }
-        }
-
-        // Toggle chat history visibility
-        function toggleChatHistory() {
-            isHistoryOpen = !isHistoryOpen;
-            document.getElementById("history-container").style.display = isHistoryOpen ? 'block' : 'none';
-            if (isHistoryOpen) {
-                loadChatHistory();
             }
         }
 
@@ -189,20 +135,6 @@
                     document.getElementById("user-input").value = ''; // Clear input box
                 }
             }
-        }
-
-        // Load chat history from the database
-        function loadChatHistory() {
-            $.get('/chat_history', function(data) {
-                const historyContainer = document.getElementById("chat-history");
-                historyContainer.innerHTML = ''; // Clear previous history
-                data.history.forEach(function(item) {
-                    const historyDiv = document.createElement("div");
-                    historyDiv.classList.add("history-item");
-                    historyDiv.innerHTML = `<strong>User:</strong> ${item.user}<br><strong>Bot:</strong> ${item.bot}`;
-                    historyContainer.appendChild(historyDiv);
-                });
-            });
         }
 
         // Initial greeting
