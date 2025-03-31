@@ -1,44 +1,43 @@
-import os
-import json
 import sqlite3
+from flask import Flask, render_template, jsonify, request
 import requests
-from flask import Flask, render_template, request, jsonify
-from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app)
 
-# Replace with your actual API credentials and URLs
-JIRA_API_URL = 'https://your-jira-instance.atlassian.net/rest/api/3'
-JIRA_API_TOKEN = 'your-jira-api-token'
-JIRA_EMAIL = 'your-jira-email'
-BITBUCKET_API_URL = 'https://api.bitbucket.org/2.0'
-BITBUCKET_USERNAME = 'your-bitbucket-username'
-BITBUCKET_APP_PASSWORD = 'your-bitbucket-app-password'
-JENKINS_API_URL = 'http://your-jenkins-instance.com/api/json'
-JENKINS_API_TOKEN = 'your-jenkins-api-token'
-CONFLUENCE_API_URL = 'https://your-confluence-instance.atlassian.net/wiki/rest/api/content'
-CONFLUENCE_API_TOKEN = 'your-confluence-api-token'
+# Tool options and sub-options
+tool_options = {
+    'jenkins': {
+        'options': ['Build Job', 'Pipeline', 'Plugins'],
+        'Build Job': ['Create New Job', 'List All Jobs', 'Configure Job'],
+        'Pipeline': ['Create Pipeline', 'View Pipeline', 'Delete Pipeline'],
+        'Plugins': ['Install Plugin', 'List Installed Plugins', 'Update Plugin']
+    },
+    'bitbucket': {
+        'options': ['Repositories', 'Pull Requests', 'Branches'],
+        'Repositories': ['Create Repo', 'Clone Repo', 'List Repositories'],
+        'Pull Requests': ['Create PR', 'Merge PR', 'View PRs'],
+        'Branches': ['Create Branch', 'Delete Branch', 'View Branches']
+    },
+    'jira': {
+        'options': ['Issues', 'Boards', 'Projects'],
+        'Issues': ['Create Issue', 'View Issues', 'Assign Issues'],
+        'Boards': ['Create Board', 'View Boards', 'Manage Boards'],
+        'Projects': ['Create Project', 'View Projects', 'Manage Projects']
+    },
+    'confluence': {
+        'options': ['Spaces', 'Pages', 'Templates'],
+        'Spaces': ['Create Space', 'View Spaces', 'Manage Spaces'],
+        'Pages': ['Create Page', 'Edit Page', 'View Pages'],
+        'Templates': ['Create Template', 'List Templates', 'Use Template']
+    }
+}
 
-# Initialize SQLite database
+# Database setup
 def init_db():
     conn = sqlite3.connect('chat_history.db')
-    cursor = conn.cursor()
-    cursor.execute('''CREATE TABLE IF NOT EXISTS chat_history (
-                        id INTEGER PRIMARY KEY,
-                        user_message TEXT,
-                        bot_response TEXT)''')
-    conn.commit()
-    conn.close()
-
-init_db()
-
-# Function to save chat history in SQLite
-def save_chat_history(user_message, bot_response):
-    conn = sqlite3.connect('chat_history.db')
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO chat_history (user_message, bot_response) VALUES (?, ?)", 
-                   (user_message, bot_response))
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS chat_history
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, user_message TEXT, bot_response TEXT)''')
     conn.commit()
     conn.close()
 
@@ -47,143 +46,81 @@ def save_chat_history(user_message, bot_response):
 def index():
     return render_template('index.html')
 
-# API endpoint to get available options for a tool
+# API endpoint to handle tool selection and provide tool-specific options
 @app.route('/get_options', methods=['POST'])
 def get_options():
     tool = request.json.get('tool')
-    
-    # Dynamic tool options and sub-options
-    if tool == 'jenkins':
-        options = ['Build Job', 'Pipeline', 'Plugins']
-    elif tool == 'bitbucket':
-        options = ['Repositories', 'Pull Requests', 'Branches']
-    elif tool == 'jira':
-        options = ['Issues', 'Boards', 'Projects']
-    elif tool == 'confluence':
-        options = ['Spaces', 'Pages', 'Templates']
+    if tool in tool_options:
+        return jsonify({
+            'options': tool_options[tool]['options']
+        })
     else:
-        options = []
+        return jsonify({'options': []})
 
-    return jsonify({'options': options})
-
-# API endpoint to get sub-options for a tool and choice
+# API endpoint to get sub-options for a specific choice
 @app.route('/get_sub_options', methods=['POST'])
 def get_sub_options():
     tool = request.json.get('tool')
     choice = request.json.get('choice')
-
-    if tool == 'jenkins':
-        if choice == 'Build Job':
-            sub_options = ['Create New Job', 'List All Jobs', 'Configure Job']
-        elif choice == 'Pipeline':
-            sub_options = ['Create Pipeline', 'View Pipeline', 'Delete Pipeline']
-        elif choice == 'Plugins':
-            sub_options = ['Install Plugin', 'List Installed Plugins', 'Update Plugin']
-    elif tool == 'bitbucket':
-        if choice == 'Repositories':
-            sub_options = ['Create Repo', 'Clone Repo', 'List Repositories']
-        elif choice == 'Pull Requests':
-            sub_options = ['Create PR', 'Merge PR', 'View PRs']
-        elif choice == 'Branches':
-            sub_options = ['Create Branch', 'Delete Branch', 'View Branches']
-    elif tool == 'jira':
-        if choice == 'Issues':
-            sub_options = ['Create Issue', 'View Issues', 'Assign Issues']
-        elif choice == 'Boards':
-            sub_options = ['Create Board', 'View Boards', 'Manage Boards']
-        elif choice == 'Projects':
-            sub_options = ['Create Project', 'View Projects', 'Manage Projects']
-    elif tool == 'confluence':
-        if choice == 'Spaces':
-            sub_options = ['Create Space', 'View Spaces', 'Manage Spaces']
-        elif choice == 'Pages':
-            sub_options = ['Create Page', 'Edit Page', 'View Pages']
-        elif choice == 'Templates':
-            sub_options = ['Create Template', 'List Templates', 'Use Template']
-    else:
-        sub_options = []
-
-    return jsonify({'sub_options': sub_options})
-
-# API endpoint for Jira to fetch projects
-@app.route('/jira/projects', methods=['GET'])
-def get_jira_projects():
-    response = requests.get(
-        f'{JIRA_API_URL}/project',
-        auth=(JIRA_EMAIL, JIRA_API_TOKEN)
-    )
-    projects = response.json()
-    return jsonify(projects)
-
-# API endpoint for Bitbucket to list repositories
-@app.route('/bitbucket/repositories', methods=['GET'])
-def get_bitbucket_repositories():
-    response = requests.get(
-        f'{BITBUCKET_API_URL}/repositories/{BITBUCKET_USERNAME}',
-        auth=(BITBUCKET_USERNAME, BITBUCKET_APP_PASSWORD)
-    )
-    repos = response.json()
-    return jsonify(repos)
-
-# API endpoint for Jenkins to get job list
-@app.route('/jenkins/jobs', methods=['GET'])
-def get_jenkins_jobs():
-    response = requests.get(
-        f'{JENKINS_API_URL}/api/json',
-        auth=('your-jenkins-username', JENKINS_API_TOKEN)
-    )
-    jobs = response.json()['jobs']
-    return jsonify(jobs)
-
-# API endpoint for Confluence to get spaces
-@app.route('/confluence/spaces', methods=['GET'])
-def get_confluence_spaces():
-    response = requests.get(
-        f'{CONFLUENCE_API_URL}/space',
-        auth=('your-confluence-email', CONFLUENCE_API_TOKEN)
-    )
-    spaces = response.json()['results']
-    return jsonify(spaces)
-
-# API endpoint to fetch chat history
-@app.route('/chat_history', methods=['GET'])
-def get_chat_history():
-    conn = sqlite3.connect('chat_history.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM chat_history ORDER BY id DESC")
-    history = cursor.fetchall()
-    conn.close()
-
-    chat_history = []
-    for row in history:
-        chat_history.append({
-            'user': row[1],
-            'bot': row[2]
+    if tool in tool_options and choice in tool_options[tool]:
+        return jsonify({
+            'sub_options': tool_options[tool][choice]
         })
-    
-    return jsonify({'history': chat_history})
+    else:
+        return jsonify({'sub_options': []})
 
-# API endpoint to handle sending user messages and saving chat history
+# API endpoint for chatbot to handle user messages and fetch bot response
 @app.route('/send_message', methods=['POST'])
 def send_message():
     user_message = request.json.get('message')
-    bot_response = "Sorry, I didn't get that."
-
-    # Process message based on the user input (e.g., tool, options)
-    if 'Jenkins' in user_message:
-        bot_response = "Here are the Jenkins options: Build Job, Pipeline, Plugins."
-    elif 'Jira' in user_message:
-        bot_response = "Here are the Jira options: Issues, Boards, Projects."
-    elif 'Bitbucket' in user_message:
-        bot_response = "Here are the Bitbucket options: Repositories, Pull Requests, Branches."
-    elif 'Confluence' in user_message:
-        bot_response = "Here are the Confluence options: Spaces, Pages, Templates."
-
-    # Save to chat history
-    save_chat_history(user_message, bot_response)
-
+    bot_response = generate_bot_response(user_message)
+    store_chat_history(user_message, bot_response)
     return jsonify({'response': bot_response})
 
-# Main function to run the Flask app
+# Function to generate a bot response based on the user input
+def generate_bot_response(user_message):
+    # Here, you can implement your chatbot logic based on user input.
+    # For now, we'll simply return a greeting message or a message based on the tool selected.
+    user_message = user_message.lower()
+    
+    if "hi" in user_message or "hello" in user_message:
+        return "Hello! How can I assist you today? Choose a tool: Jenkins, Jira, Bitbucket, or Confluence."
+    elif "jenkins" in user_message:
+        return "You have selected Jenkins. Please choose an option: Build Job, Pipeline, or Plugins."
+    elif "jira" in user_message:
+        return "You have selected Jira. Please choose an option: Issues, Boards, or Projects."
+    elif "bitbucket" in user_message:
+        return "You have selected Bitbucket. Please choose an option: Repositories, Pull Requests, or Branches."
+    elif "confluence" in user_message:
+        return "You have selected Confluence. Please choose an option: Spaces, Pages, or Templates."
+    else:
+        return "Sorry, I didn't understand that. Please select a valid tool: Jenkins, Jira, Bitbucket, or Confluence."
+
+# Function to store chat history in the database
+def store_chat_history(user_message, bot_response):
+    conn = sqlite3.connect('chat_history.db')
+    c = conn.cursor()
+    c.execute("INSERT INTO chat_history (user_message, bot_response) VALUES (?, ?)", 
+              (user_message, bot_response))
+    conn.commit()
+    conn.close()
+
+# API endpoint to retrieve chat history
+@app.route('/chat_history', methods=['GET'])
+def chat_history():
+    conn = sqlite3.connect('chat_history.db')
+    c = conn.cursor()
+    c.execute("SELECT user_message, bot_response FROM chat_history ORDER BY id DESC LIMIT 10")
+    rows = c.fetchall()
+    conn.close()
+    
+    history = []
+    for row in rows:
+        history.append({'user': row[0], 'bot': row[1]})
+    
+    return jsonify({'history': history})
+
+# Main function to run the app
 if __name__ == '__main__':
+    init_db()
     app.run(debug=True)

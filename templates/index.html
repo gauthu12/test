@@ -4,137 +4,109 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DevOps Chatbot</title>
-    <!-- Include Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap 4.5.0 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
     <style>
         /* Floating Chatbot Button */
-        .chatbot-button {
+        #chatbot-button {
             position: fixed;
             bottom: 20px;
             right: 20px;
             background-color: #007bff;
             color: white;
-            padding: 15px 20px;
             border-radius: 50%;
+            padding: 15px;
             font-size: 24px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
             cursor: pointer;
             z-index: 9999;
-            transition: background-color 0.3s;
-        }
-        .chatbot-button:hover {
-            background-color: #0056b3;
         }
 
-        /* Chat window */
-        .chat-window {
+        /* Chatbot container */
+        #chatbot-container {
+            display: none;
             position: fixed;
-            bottom: 80px;
+            bottom: 70px;
             right: 20px;
             background-color: white;
+            border: 1px solid #ccc;
             border-radius: 10px;
-            border: 1px solid #ddd;
             width: 300px;
             height: 400px;
-            display: none;
-            flex-direction: column;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            z-index: 9999;
         }
 
-        /* Chat Header */
-        .chat-header {
-            background-color: #007bff;
-            color: white;
+        /* Chat box */
+        #chatbox {
             padding: 10px;
-            border-top-left-radius: 10px;
-            border-top-right-radius: 10px;
-            font-weight: bold;
-        }
-
-        /* Chat Body */
-        .chat-body {
+            height: 300px;
             overflow-y: auto;
-            padding: 10px;
-            flex-grow: 1;
-            max-height: 70%;
-            display: flex;
-            flex-direction: column-reverse;
+            border-bottom: 1px solid #ccc;
         }
 
-        /* User and bot message styling */
-        .user-message {
-            text-align: right;
-            padding: 5px 10px;
-            margin: 5px;
-            background-color: #e0f7fa;
+        /* Message bubble styles */
+        .user-msg, .bot-msg {
+            margin: 5px 0;
+            padding: 8px;
             border-radius: 10px;
             max-width: 80%;
+        }
+
+        .user-msg {
+            background-color: #f1f1f1;
             margin-left: auto;
         }
 
-        .bot-message {
-            text-align: left;
-            padding: 5px 10px;
-            margin: 5px;
-            background-color: #f1f1f1;
-            border-radius: 10px;
-            max-width: 80%;
-        }
-
-        /* Chat Input */
-        .chat-input {
-            display: flex;
-            border-top: 1px solid #ddd;
-            padding: 10px;
-            background-color: #f9f9f9;
-        }
-
-        .chat-input input {
-            flex-grow: 1;
-            padding: 8px;
-            border-radius: 10px;
-            border: 1px solid #ddd;
-            margin-right: 10px;
-        }
-
-        .chat-input button {
+        .bot-msg {
             background-color: #007bff;
             color: white;
+            margin-right: auto;
+        }
+
+        /* Input box */
+        #user-input {
+            padding: 10px;
+            width: calc(100% - 20px);
             border: none;
-            padding: 10px;
-            border-radius: 10px;
-            cursor: pointer;
+            border-radius: 0 0 10px 10px;
         }
 
-        /* Options and sub-options */
-        .options-container {
-            display: none;
-            padding: 15px;
-        }
-
-        .options-container ul {
-            list-style-type: none;
-            padding: 0;
-        }
-
-        .options-container li {
-            background-color: #f1f1f1;
-            margin: 5px;
-            padding: 10px;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        .options-container li:hover {
-            background-color: #007bff;
+        /* Chat history container */
+        .history-btn {
+            position: absolute;
+            top: 50%;
+            right: 10px;
+            background-color: #28a745;
             color: white;
+            border-radius: 50%;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 10px;
         }
 
-        .option-header {
-            font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 10px;
+        .history-container {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            width: 300px;
+            max-height: 400px;
+            background-color: white;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            overflow-y: scroll;
+            display: none;
+            z-index: 9999;
+        }
+
+        .history-item {
+            padding: 10px;
+            border-bottom: 1px solid #f1f1f1;
+        }
+
+        .history-item:last-child {
+            border-bottom: none;
         }
 
     </style>
@@ -142,127 +114,103 @@
 <body>
 
     <!-- Floating Chatbot Button -->
-    <div class="chatbot-button" id="chatbot-btn">
-        Chatbot
+    <div id="chatbot-button" onclick="toggleChatbot()">
+        <i class="fas fa-comment-alt"></i>
     </div>
 
-    <!-- Chat Window -->
-    <div class="chat-window" id="chat-window">
-        <div class="chat-header">DevOps Chatbot</div>
-        <div class="chat-body" id="chat-body"></div>
-        <div class="chat-input">
-            <input type="text" id="user-input" placeholder="Type a message..." />
-            <button id="send-btn">Send</button>
-        </div>
+    <!-- Chatbot Container -->
+    <div id="chatbot-container">
+        <div id="chatbox"></div>
+        <input type="text" id="user-input" placeholder="Type a message..." onkeydown="handleKeyDown(event)">
+        <div class="history-btn" onclick="toggleChatHistory()">History</div>
     </div>
 
-    <!-- Options and Sub-options -->
-    <div class="options-container" id="options-container">
-        <div class="option-header">Select a Tool:</div>
-        <ul id="tool-options"></ul>
+    <!-- Chat History -->
+    <div class="history-container" id="history-container">
+        <div id="chat-history"></div>
     </div>
 
-    <!-- Include jQuery and Bootstrap JS -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script>
-        $(document).ready(function() {
-            // Show/hide chat window
-            $('#chatbot-btn').click(function() {
-                $('#chat-window').toggle();
-                if ($('#chat-window').is(":visible")) {
-                    $('#chatbot-btn').text('Close');
-                } else {
-                    $('#chatbot-btn').text('Chatbot');
+        var isChatbotOpen = false;
+        var isHistoryOpen = false;
+
+        // Toggle the chatbot visibility
+        function toggleChatbot() {
+            isChatbotOpen = !isChatbotOpen;
+            if (isChatbotOpen) {
+                document.getElementById("chatbot-container").style.display = 'block';
+                setTimeout(() => { document.getElementById("user-input").focus(); }, 100);
+            } else {
+                document.getElementById("chatbot-container").style.display = 'none';
+            }
+        }
+
+        // Toggle chat history visibility
+        function toggleChatHistory() {
+            isHistoryOpen = !isHistoryOpen;
+            document.getElementById("history-container").style.display = isHistoryOpen ? 'block' : 'none';
+            if (isHistoryOpen) {
+                loadChatHistory();
+            }
+        }
+
+        // Send message and update chatbox
+        function sendMessage(message) {
+            const chatbox = document.getElementById("chatbox");
+            const userMsgDiv = document.createElement("div");
+            userMsgDiv.classList.add("user-msg");
+            userMsgDiv.textContent = message;
+            chatbox.appendChild(userMsgDiv);
+
+            // Fetch chatbot response from server
+            $.ajax({
+                url: '/send_message',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ message: message }),
+                success: function(response) {
+                    const botMsgDiv = document.createElement("div");
+                    botMsgDiv.classList.add("bot-msg");
+                    botMsgDiv.textContent = response.response;
+                    chatbox.appendChild(botMsgDiv);
+                    chatbox.scrollTop = chatbox.scrollHeight; // Scroll to the bottom
                 }
             });
+        }
 
-            // Send user message and fetch response
-            $('#send-btn').click(function() {
-                var userMessage = $('#user-input').val();
-                if (userMessage.trim() !== '') {
-                    appendMessage('user', userMessage);
-                    $('#user-input').val('');
-                    sendMessage(userMessage);
-                }
-            });
-
-            // Function to append messages to the chat window
-            function appendMessage(sender, message) {
-                var messageClass = sender === 'user' ? 'user-message' : 'bot-message';
-                var messageHtml = `<div class="${messageClass}">${message}</div>`;
-                $('#chat-body').append(messageHtml);
-                $('#chat-body').scrollTop($('#chat-body')[0].scrollHeight);
-            }
-
-            // Function to send message to backend and get response
-            function sendMessage(message) {
-                $.ajax({
-                    url: '/send_message',
-                    method: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify({ message: message }),
-                    success: function(response) {
-                        appendMessage('bot', response.response);
-                    }
-                });
-            }
-
-            // Fetch tool options dynamically based on user input
-            function fetchToolOptions(tool) {
-                $.ajax({
-                    url: '/get_options',
-                    method: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify({ tool: tool }),
-                    success: function(response) {
-                        showOptions(response.options);
-                    }
-                });
-            }
-
-            // Show options dynamically
-            function showOptions(options) {
-                $('#tool-options').empty();
-                if (options.length === 0) {
-                    $('#options-container').hide();
-                } else {
-                    $('#options-container').show();
-                    options.forEach(function(option) {
-                        $('#tool-options').append(`<li>${option}</li>`);
-                    });
+        // Handle keydown events for user input
+        function handleKeyDown(event) {
+            if (event.key === 'Enter') {
+                const userInput = document.getElementById("user-input").value;
+                if (userInput.trim()) {
+                    sendMessage(userInput);
+                    document.getElementById("user-input").value = ''; // Clear input box
                 }
             }
+        }
 
-            // Show chat history when requested
-            function fetchChatHistory() {
-                $.get('/chat_history', function(data) {
-                    data.history.forEach(function(chat) {
-                        appendMessage('user', chat.user);
-                        appendMessage('bot', chat.bot);
-                    });
-                });
-            }
-
-            // Trigger fetching tool options for demonstration
-            // fetchToolOptions('jenkins');  // Example tool, can be triggered dynamically by user input
-
-            // Handle the hovering over tool options
-            $('#tool-options').on('click', 'li', function() {
-                var choice = $(this).text();
-                // Based on the choice, fetch sub-options dynamically
-                $.ajax({
-                    url: '/get_sub_options',
-                    method: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify({ tool: 'jenkins', choice: choice }),
-                    success: function(response) {
-                        showOptions(response.sub_options);
-                    }
+        // Load chat history from the database
+        function loadChatHistory() {
+            $.get('/chat_history', function(data) {
+                const historyContainer = document.getElementById("chat-history");
+                historyContainer.innerHTML = ''; // Clear previous history
+                data.history.forEach(function(item) {
+                    const historyDiv = document.createElement("div");
+                    historyDiv.classList.add("history-item");
+                    historyDiv.innerHTML = `<strong>User:</strong> ${item.user}<br><strong>Bot:</strong> ${item.bot}`;
+                    historyContainer.appendChild(historyDiv);
                 });
             });
-        });
+        }
+
+        // Initial greeting
+        window.onload = function() {
+            setTimeout(function() {
+                sendMessage("Hi, I'm your DevOps Assistant. How can I help you today?");
+            }, 500);
+        };
     </script>
 </body>
 </html>
