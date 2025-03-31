@@ -4,243 +4,223 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DevOps Chatbot</title>
-    
-    <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <!-- Custom CSS -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <style>
-        /* Floating Chat Box */
-        #chat-container {
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7fa;
+        }
+
+        /* Floating Chat Button */
+        .chat-button {
             position: fixed;
             bottom: 20px;
             right: 20px;
+            background-color: #007bff;
+            color: white;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            text-align: center;
+            font-size: 28px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .chat-button:hover {
+            background-color: #0056b3;
+            transform: scale(1.1);
+        }
+
+        .chat-window {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
             width: 350px;
-            max-height: 500px;
             background: white;
             border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
             display: none;
+            transition: all 0.3s ease;
         }
 
-        #chat-header {
+        .chat-header {
             background: #007bff;
             color: white;
-            padding: 10px;
+            padding: 12px;
             text-align: center;
-            cursor: pointer;
-            font-weight: bold;
+            font-size: 18px;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
         }
 
-        #chat-body {
-            height: 350px;
+        .chat-body {
+            height: 300px;
             overflow-y: auto;
             padding: 10px;
+            background: #f9f9f9;
+            border-bottom: 1px solid #ddd;
         }
 
-        .message {
-            padding: 8px;
-            margin: 5px;
-            border-radius: 8px;
-            max-width: 80%;
+        .chat-footer {
+            padding: 10px;
+            display: flex;
+        }
+
+        .chat-footer input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .chat-footer button {
+            margin-left: 10px;
+            padding: 10px 14px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .chat-footer button:hover {
+            background: #0056b3;
         }
 
         .user-message {
-            background: #dcf8c6;
-            align-self: flex-end;
+            text-align: right;
+            margin-bottom: 10px;
         }
 
         .bot-message {
-            background: #f1f1f1;
-            align-self: flex-start;
+            text-align: left;
+            margin-bottom: 10px;
         }
 
-        #chat-footer {
-            display: flex;
-            padding: 10px;
-            border-top: 1px solid #ddd;
-        }
-
-        #user-input {
-            flex-grow: 1;
-            border: none;
-            padding: 5px;
-        }
-
-        #send-btn {
-            background: #007bff;
+        .history-button {
+            margin-top: 10px;
+            background-color: #28a745;
             color: white;
-            border: none;
-            padding: 5px 10px;
+            border-radius: 5px;
+            padding: 8px 12px;
             cursor: pointer;
+            width: 100%;
         }
 
-        /* Chat Icon */
-        #chat-icon {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #007bff;
+        .history-button:hover {
+            background-color: #218838;
+        }
+
+        .message-card {
+            padding: 8px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            background-color: #f1f1f1;
+        }
+
+        .message-card.bot {
+            background-color: #007bff;
             color: white;
-            padding: 10px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 20px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .message-card.user {
+            background-color: #f1f1f1;
+            color: #333;
+        }
+
+        .chat-history-container {
+            max-height: 400px;
+            overflow-y: auto;
+            padding-right: 15px;
         }
     </style>
 </head>
 <body>
 
-    <!-- Chat Icon -->
-    <div id="chat-icon" onclick="toggleChat()">💬</div>
+<!-- Floating Chat Button -->
+<div class="chat-button" onclick="toggleChat()" title="Open Chatbot">
+    💬
+</div>
 
-    <!-- Chat Container -->
-    <div id="chat-container">
-        <div id="chat-header" onclick="toggleChat()">DevOps Chatbot</div>
-        <div id="chat-body" class="d-flex flex-column"></div>
-        <div id="chat-footer">
-            <input type="text" id="user-input" placeholder="Type a message..." class="form-control">
-            <button id="send-btn">➤</button>
-        </div>
+<!-- Chat Window -->
+<div class="chat-window">
+    <div class="chat-header">
+        DevOps Chatbot 
+        <span style="float:right; cursor:pointer;" onclick="toggleChat()">✖</span>
     </div>
+    <div class="chat-body" id="chatBody">
+        <!-- Chat history will be loaded here -->
+    </div>
+    <div class="chat-footer">
+        <input type="text" id="userInput" placeholder="Ask me something...">
+        <button onclick="sendMessage()">Send</button>
+    </div>
+    <button class="history-button" onclick="loadChatHistory()">View Chat History</button>
+</div>
 
-    <!-- Sound for Notifications -->
-    <audio id="message-sound" src="https://www.soundjay.com/button/beep-07.wav"></audio>
+<script>
+    function toggleChat() {
+        $(".chat-window").fadeToggle();
+        loadChatHistory();  // Load history when opening chat window
+    }
 
-    <!-- jQuery & Bootstrap Script -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>
-        function toggleChat() {
-            $("#chat-container").slideToggle();
-        }
+    function sendMessage() {
+        let userInput = $("#userInput").val().trim();
+        if (userInput === "") return;
 
-        function playSound() {
-            document.getElementById("message-sound").play();
-        }
+        $("#chatBody").append(`<div class='message-card user'><strong>You:</strong> ${userInput}</div>`);
+        $("#userInput").val("");
 
-        function appendMessage(message, sender) {
-            let chatBody = $("#chat-body");
-            let messageClass = sender === "user" ? "user-message" : "bot-message";
-            let messageHTML = `<div class="message ${messageClass}">${message}</div>`;
-            chatBody.append(messageHTML);
-            chatBody.scrollTop(chatBody[0].scrollHeight);
-            if (sender === "bot") playSound();
-        }
-
-        let selectedTool = "";
-
-        $("#send-btn").click(function() {
-            let userMessage = $("#user-input").val().trim();
-            if (userMessage === "") return;
-
-            appendMessage(userMessage, "user");
-            $("#user-input").val("");
-
-            // If tool is already selected, fetch sub-options
-            if (selectedTool) {
-                $.ajax({
-                    url: "/get_sub_options",
-                    type: "POST",
-                    contentType: "application/json",
-                    data: JSON.stringify({ tool: selectedTool, choice: userMessage }),
-                    success: function(response) {
-                        if (response.sub_options.length > 0) {
-                            appendMessage("Sub-Options: " + response.sub_options.join(", "), "bot");
-                        } else {
-                            appendMessage("Invalid choice. Try again.", "bot");
-                        }
-                    },
-                    error: function() {
-                        appendMessage("Error fetching sub-options!", "bot");
-                    }
-                });
+        fetch('/get_options', {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tool: userInput })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.options.length > 0) {
+                let optionsList = data.options.map(option => 
+                    `<button class='btn btn-primary btn-sm m-1' onclick="fetchSubOptions('${userInput}', '${option}')">${option}</button>`
+                ).join("");
+                $("#chatBody").append(`<div class='message-card bot'><strong>Bot:</strong> Here are the options for <b>${userInput}</b>:<br>${optionsList}</div>`);
             } else {
-                $.ajax({
-                    url: "/get_options",
-                    type: "POST",
-                    contentType: "application/json",
-                    data: JSON.stringify({ tool: userMessage }),
-                    success: function(response) {
-                        if (response.options.length > 0) {
-                            selectedTool = userMessage;
-                            appendMessage("Options: " + response.options.join(", "), "bot");
-                        } else {
-                            appendMessage("Invalid tool. Try again.", "bot");
-                        }
-                    },
-                    error: function() {
-                        appendMessage("Error connecting to server!", "bot");
-                    }
-                });
+                $("#chatBody").append(`<div class='message-card bot'><strong>Bot:</strong> I didn't understand. Try: <b>Jenkins, Jira, Bitbucket, Confluence</b></div>`);
             }
         });
+    }
 
-        $("#user-input").keypress(function(e) {
-            if (e.which == 13) {
-                $("#send-btn").click();
-            }
+    function fetchSubOptions(tool, choice) {
+        fetch('/get_sub_options', {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tool: tool, choice: choice })
+        })
+        .then(response => response.json())
+        .then(data => {
+            let subOptions = data.sub_options.map(sub => `<li>${sub}</li>`).join("");
+            $("#chatBody").append(`<div class='message-card bot'><strong>Bot:</strong> ${choice} has these options:<br><ul>${subOptions}</ul></div>`);
         });
+    }
 
-        // Jenkins API Call
-        function getJenkinsJobs() {
-            $.get("/jenkins/jobs", function(response) {
-                if (response.jobs) {
-                    appendMessage("Jenkins Jobs: " + response.jobs.join(", "), "bot");
-                } else {
-                    appendMessage("Failed to fetch Jenkins jobs.", "bot");
-                }
+    function loadChatHistory() {
+        fetch('/chat_history')
+        .then(response => response.json())
+        .then(data => {
+            let historyHtml = "";
+            data.history.forEach(chat => {
+                historyHtml += `<div class='message-card user'><strong>You:</strong> ${chat.user}</div>`;
+                historyHtml += `<div class='message-card bot'><strong>Bot:</strong> ${chat.bot}</div>`;
             });
-        }
+            $("#chatBody").html(historyHtml);
+        });
+    }
+</script>
 
-        function triggerJenkinsBuild() {
-            let jobName = prompt("Enter the Jenkins job name:");
-            if (!jobName) return;
-
-            $.ajax({
-                url: "/jenkins/build",
-                type: "POST",
-                contentType: "application/json",
-                data: JSON.stringify({ job_name: jobName }),
-                success: function(response) {
-                    appendMessage(response.message, "bot");
-                },
-                error: function() {
-                    appendMessage("Failed to trigger Jenkins job.", "bot");
-                }
-            });
-        }
-
-        // Confluence API Call
-        function getConfluencePages() {
-            $.get("/confluence/pages", function(response) {
-                if (response.pages) {
-                    appendMessage("Confluence Pages: " + response.pages.join(", "), "bot");
-                } else {
-                    appendMessage("Failed to fetch Confluence pages.", "bot");
-                }
-            });
-        }
-
-        function createConfluencePage() {
-            let title = prompt("Enter page title:");
-            let content = prompt("Enter page content:");
-            if (!title || !content) return;
-
-            $.ajax({
-                url: "/confluence/create_page",
-                type: "POST",
-                contentType: "application/json",
-                data: JSON.stringify({ title: title, content: content }),
-                success: function(response) {
-                    appendMessage(response.message, "bot");
-                },
-                error: function() {
-                    appendMessage("Failed to create Confluence page.", "bot");
-                }
-            });
-        }
-    </script>
 </body>
 </html>
