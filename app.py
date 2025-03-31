@@ -32,9 +32,10 @@ tool_options = {
     }
 }
 
-# Jenkins API Integration
-JENKINS_URL = "http://your-jenkins-server-url"
-JENKINS_API_TOKEN = "your-api-token"
+# API Integrations
+# Jenkins API
+JENKINS_URL = "http://your-jenkins-url"
+JENKINS_API_TOKEN = "your-jenkins-api-token"
 JENKINS_USER = "your-jenkins-username"
 
 def get_jenkins_jobs():
@@ -45,7 +46,7 @@ def get_jenkins_jobs():
         return [job['name'] for job in jobs]
     return []
 
-# Jira API Integration
+# Jira API
 JIRA_URL = "https://your-jira-instance.atlassian.net"
 JIRA_EMAIL = "your-email"
 JIRA_API_TOKEN = "your-jira-api-token"
@@ -59,7 +60,7 @@ def get_jira_projects():
         return [project['name'] for project in projects]
     return []
 
-# Bitbucket API Integration
+# Bitbucket API
 BITBUCKET_URL = "https://api.bitbucket.org/2.0"
 BITBUCKET_USER = "your-bitbucket-username"
 BITBUCKET_APP_PASSWORD = "your-app-password"
@@ -72,7 +73,7 @@ def get_bitbucket_repositories():
         return [repo['name'] for repo in repos]
     return []
 
-# Confluence API Integration
+# Confluence API
 CONFLUENCE_URL = "https://your-confluence-instance.atlassian.net/wiki"
 CONFLUENCE_EMAIL = "your-email"
 CONFLUENCE_API_TOKEN = "your-confluence-api-token"

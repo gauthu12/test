@@ -82,22 +82,22 @@
             $('#message-input').val('');
             if (message.trim()) {
                 $('#messages').append('<div><strong>You:</strong> ' + message + '</div>');
-                $.ajax({
-                    url: '/get_response',
-                    method: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify({ message: message }),
-                    success: function(response) {
-                        $('#messages').append('<div><strong>Bot:</strong> ' + response.response + '</div>');
-                        $('#messages').scrollTop($('#messages')[0].scrollHeight);
-                    }
+                $.post('/get_response', { message: message }, function(data) {
+                    $('#messages').append('<div><strong>Bot:</strong> ' + data.response + '</div>');
                 });
             }
         }
 
         function selectTool(tool) {
-            $('#messages').append('<div><strong>Bot:</strong> You selected ' + tool + '. What would you like to do?</div>');
-            // You can expand here to show more sub-options dynamically based on the selected tool
+            $.ajax({
+                url: '/get_response',
+                method: 'POST',
+                data: JSON.stringify({ message: tool }),
+                contentType: 'application/json',
+                success: function(data) {
+                    $('#messages').append('<div><strong>Bot:</strong> ' + data.response + '</div>');
+                }
+            });
         }
     </script>
 </body>
