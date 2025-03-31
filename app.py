@@ -1,171 +1,58 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DevOps Chatbot</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/js/all.min.js"></script>
-    <style>
-        /* Styling for chatbot UI */
-        #chat-window {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 300px;
-            height: 400px;
-            background-color: white;
-            border: 1px solid #ddd;
-            border-radius: 10px;
-            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-            display: none;
-            z-index: 9999;
-            overflow-y: auto;
-            padding: 10px;
-        }
+from flask import Flask, render_template, jsonify, request
+import requests
+from requests.auth import HTTPBasicAuth
 
-        #chat-header {
-            background-color: #007bff;
-            color: white;
-            padding: 10px;
-            text-align: center;
-            font-weight: bold;
-            cursor: pointer;
-            border-radius: 10px 10px 0 0;
-        }
+app = Flask(__name__)
 
-        .chat-btn {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 10px;
-            margin: 5px 0;
-            cursor: pointer;
-            border-radius: 5px;
-            width: 100%;
-            text-align: left;
-            transition: 0.3s;
-        }
+# Example API endpoints (Replace with actual credentials and URLs)
+JENKINS_URL = 'http://your-jenkins-url/api/json'
+JIRA_URL = 'https://your-jira-instance/rest/api/2/search'
+BITBUCKET_URL = 'https://api.bitbucket.org/2.0/repositories/your-team'
+CONFLUENCE_URL = 'https://your-confluence-instance/wiki/rest/api/content'
 
-        .chat-btn:hover {
-            background-color: #0056b3;
-        }
+# Authentication details (replace with actual keys or tokens)
+JENKINS_USER = 'your-username'
+JENKINS_PASS = 'your-password'
+JIRA_API_TOKEN = 'your-jira-api-token'
+BITBUCKET_TOKEN = 'your-bitbucket-api-token'
+CONFLUENCE_TOKEN = 'your-confluence-api-token'
 
-        .show-chat-btn {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            font-size: 24px;
-            cursor: pointer;
-            z-index: 9999;
-        }
-    </style>
-</head>
-<body>
+def fetch_data_from_api(url, headers=None, auth=None):
+    """General function to fetch data from APIs."""
+    try:
+        response = requests.get(url, headers=headers, auth=auth)
+        response.raise_for_status()  # Raises exception for 4xx/5xx responses
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        return {'error': f'Error: {str(e)}'}
 
-<!-- Chat Toggle Button -->
-<button class="show-chat-btn" onclick="toggleChatWindow()">
-    <i class="fas fa-comment"></i>
-</button>
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-<!-- Chat Window -->
-<div id="chat-window">
-    <div id="chat-header" onclick="toggleChatWindow()">DevOps Chatbot</div>
-    <div id="chat-body">
-        <p>Hello! Choose a DevOps tool:</p>
-        <div id="chat-options">
-            <button class="chat-btn" onclick="showOptions('jenkins')">Jenkins</button>
-            <button class="chat-btn" onclick="showOptions('jira')">Jira</button>
-            <button class="chat-btn" onclick="showOptions('bitbucket')">Bitbucket</button>
-            <button class="chat-btn" onclick="showOptions('confluence')">Confluence</button>
-        </div>
-    </div>
-</div>
+@app.route('/get_jenkins_jobs', methods=['GET'])
+def get_jenkins_jobs():
+    auth = HTTPBasicAuth(JENKINS_USER, JENKINS_PASS)
+    data = fetch_data_from_api(JENKINS_URL, auth=auth)
+    return jsonify(data)
 
-<script>
-    const menuStructure = {
-        'jenkins': {
-            'options': ['Build Job', 'Pipeline', 'Plugins'],
-            'Build Job': ['Create New Job', 'List All Jobs', 'Configure Job'],
-            'Pipeline': ['Create Pipeline', 'View Pipeline', 'Delete Pipeline'],
-            'Plugins': ['Install Plugin', 'List Installed Plugins', 'Update Plugin']
-        },
-        'bitbucket': {
-            'options': ['Repositories', 'Pull Requests', 'Branches'],
-            'Repositories': ['Create Repo', 'Clone Repo', 'List Repositories'],
-            'Pull Requests': ['Create PR', 'Merge PR', 'View PRs'],
-            'Branches': ['Create Branch', 'Delete Branch', 'View Branches']
-        },
-        'jira': {
-            'options': ['Issues', 'Boards', 'Projects'],
-            'Issues': ['Create Issue', 'View Issues', 'Assign Issues'],
-            'Boards': ['Create Board', 'View Boards', 'Manage Boards'],
-            'Projects': ['Create Project', 'View Projects', 'Manage Projects']
-        },
-        'confluence': {
-            'options': ['Spaces', 'Pages', 'Templates'],
-            'Spaces': ['Create Space', 'View Spaces', 'Manage Spaces'],
-            'Pages': ['Create Page', 'Edit Page', 'View Pages'],
-            'Templates': ['Create Template', 'List Templates', 'Use Template']
-        }
-    };
+@app.route('/get_jira_issues', methods=['GET'])
+def get_jira_issues():
+    headers = {'Authorization': f'Bearer {JIRA_API_TOKEN}'}
+    data = fetch_data_from_api(JIRA_URL, headers=headers)
+    return jsonify(data)
 
-    let chatHistory = [];
+@app.route('/get_bitbucket_repos', methods=['GET'])
+def get_bitbucket_repos():
+    headers = {'Authorization': f'Bearer {BITBUCKET_TOKEN}'}
+    data = fetch_data_from_api(BITBUCKET_URL, headers=headers)
+    return jsonify(data)
 
-    function toggleChatWindow() {
-        let chatWindow = document.getElementById('chat-window');
-        chatWindow.style.display = chatWindow.style.display === 'block' ? 'none' : 'block';
-    }
+@app.route('/get_confluence_pages', methods=['GET'])
+def get_confluence_pages():
+    headers = {'Authorization': f'Bearer {CONFLUENCE_TOKEN}'}
+    data = fetch_data_from_api(CONFLUENCE_URL, headers=headers)
+    return jsonify(data)
 
-    function showOptions(tool) {
-        chatHistory.push(tool);
-        let options = menuStructure[tool]['options'];
-        updateChatButtons(options, tool);
-    }
-
-    function showSubOptions(tool, category) {
-        chatHistory.push(category);
-        let options = menuStructure[tool][category];
-        updateChatButtons(options, tool, category);
-    }
-
-    function updateChatButtons(options, tool, category = null) {
-        let chatOptions = document.getElementById('chat-options');
-        chatOptions.innerHTML = ''; // Clear previous options
-
-        if (category) {
-            chatOptions.innerHTML += `<button class="chat-btn" onclick="showOptions('${tool}')">⬅ Back</button>`;
-        } else if (chatHistory.length > 1) {
-            chatOptions.innerHTML += `<button class="chat-btn" onclick="resetChat()">🏠 Home</button>`;
-        }
-
-        options.forEach(option => {
-            let onClickAction = category ? `executeAction('${tool}', '${category}', '${option}')` : `showSubOptions('${tool}', '${option}')`;
-            chatOptions.innerHTML += `<button class="chat-btn" onclick="${onClickAction}">${option}</button>`;
-        });
-    }
-
-    function resetChat() {
-        chatHistory = [];
-        document.getElementById('chat-options').innerHTML = `
-            <button class="chat-btn" onclick="showOptions('jenkins')">Jenkins</button>
-            <button class="chat-btn" onclick="showOptions('jira')">Jira</button>
-            <button class="chat-btn" onclick="showOptions('bitbucket')">Bitbucket</button>
-            <button class="chat-btn" onclick="showOptions('confluence')">Confluence</button>
-        `;
-    }
-
-    function executeAction(tool, category, action) {
-        let chatOptions = document.getElementById('chat-options');
-        chatOptions.innerHTML = `<p>Executing: ${tool} > ${category} > ${action}</p>`;
-        setTimeout(resetChat, 3000);
-    }
-</script>
-
-</body>
-</html>
+if __name__ == '__main__':
+    app.run(debug=True)
