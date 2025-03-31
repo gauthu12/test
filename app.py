@@ -1,102 +1,210 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, jsonify, request
 import requests
+from requests.auth import HTTPBasicAuth
+import sqlite3
 import os
 
 app = Flask(__name__)
 
-# ---------------------- API CREDENTIALS ---------------------- #
-JIRA_URL = os.getenv("JIRA_URL", "https://your-jira-instance.atlassian.net")
-JIRA_USER = os.getenv("JIRA_USER", "your-email@example.com")
-JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN", "your-api-token")
+# ===========================
+# API Credentials (Modify These)
+# ===========================
 
-BITBUCKET_URL = os.getenv("BITBUCKET_URL", "https://api.bitbucket.org/2.0")
-BITBUCKET_USERNAME = os.getenv("BITBUCKET_USERNAME", "your-username")
-BITBUCKET_PASSWORD = os.getenv("BITBUCKET_PASSWORD", "your-password")
+# JIRA Credentials
+JIRA_URL = "https://your-jira-url.atlassian.net"
+JIRA_USER = "your-jira-email"
+JIRA_TOKEN = "your-jira-api-token"
 
-JENKINS_URL = os.getenv("JENKINS_URL", "http://your-jenkins-server:8080")
-JENKINS_USER = os.getenv("JENKINS_USER", "your-jenkins-username")
-JENKINS_API_TOKEN = os.getenv("JENKINS_API_TOKEN", "your-jenkins-api-token")
+# Bitbucket Credentials
+BITBUCKET_URL = "https://api.bitbucket.org/2.0"
+BITBUCKET_USER = "your-bitbucket-username"
+BITBUCKET_TOKEN = "your-bitbucket-api-token"
 
-CONFLUENCE_URL = os.getenv("CONFLUENCE_URL", "https://your-confluence-instance.atlassian.net/wiki")
-CONFLUENCE_USER = os.getenv("CONFLUENCE_USER", "your-email@example.com")
-CONFLUENCE_API_TOKEN = os.getenv("CONFLUENCE_API_TOKEN", "your-api-token")
+# Jenkins Credentials
+JENKINS_URL = "http://your-jenkins-url"
+JENKINS_USER = "your-jenkins-username"
+JENKINS_TOKEN = "your-jenkins-api-token"
 
-# ---------------------- JENKINS INTEGRATION ---------------------- #
-@app.route('/jenkins/jobs', methods=['GET'])
-def get_jenkins_jobs():
-    """Fetches the list of Jenkins jobs"""
-    url = f"{JENKINS_URL}/api/json"
-    auth = (JENKINS_USER, JENKINS_API_TOKEN)
-    
-    response = requests.get(url, auth=auth)
+# Confluence Credentials
+CONFLUENCE_URL = "https://your-confluence-url"
+CONFLUENCE_USER = "your-confluence-username"
+CONFLUENCE_TOKEN = "your-confluence-api-token"
+
+# ===========================
+# Database Setup (SQLite)
+# ===========================
+
+DB_PATH = "chat_history.db"
+
+if not os.path.exists(DB_PATH):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE chats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_message TEXT,
+            bot_response TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+# ===========================
+# Routes
+# ===========================
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+# ===========================
+# JIRA API Endpoints
+# ===========================
+
+# Get Jira Projects
+@app.route('/jira/projects', methods=['GET'])
+def get_jira_projects():
+    url = f"{JIRA_URL}/rest/api/3/project"
+    response = requests.get(url, auth=HTTPBasicAuth(JIRA_USER, JIRA_TOKEN))
     if response.status_code == 200:
-        jobs = response.json().get('jobs', [])
-        return jsonify({'jobs': [job['name'] for job in jobs]})
-    
-    return jsonify({'error': 'Failed to fetch Jenkins jobs'}), response.status_code
+        projects = [{"id": p["id"], "name": p["name"]} for p in response.json()]
+        return jsonify({"projects": projects})
+    return jsonify({"error": "Failed to fetch Jira projects"}), 500
 
-@app.route('/jenkins/build', methods=['POST'])
-def trigger_jenkins_build():
-    """Triggers a Jenkins job"""
-    job_name = request.json.get('job_name')
-    if not job_name:
-        return jsonify({'error': 'Job name is required'}), 400
-
-    url = f"{JENKINS_URL}/job/{job_name}/build"
-    auth = (JENKINS_USER, JENKINS_API_TOKEN)
-
-    response = requests.post(url, auth=auth)
-    if response.status_code == 201:
-        return jsonify({'message': f'Jenkins job "{job_name}" triggered successfully!'})
-    
-    return jsonify({'error': f'Failed to trigger job "{job_name}"'}), response.status_code
-
-# ---------------------- CONFLUENCE INTEGRATION ---------------------- #
-@app.route('/confluence/pages', methods=['GET'])
-def get_confluence_pages():
-    """Fetches a list of Confluence pages in a given space"""
-    space_key = request.args.get('space_key', 'YOUR_SPACE_KEY')
-    
-    url = f"{CONFLUENCE_URL}/rest/api/content"
-    auth = (CONFLUENCE_USER, CONFLUENCE_API_TOKEN)
-    params = {"spaceKey": space_key, "expand": "title"}
-
-    response = requests.get(url, auth=auth, params=params)
-    if response.status_code == 200:
-        pages = response.json().get('results', [])
-        return jsonify({'pages': [page['title'] for page in pages]})
-    
-    return jsonify({'error': 'Failed to fetch Confluence pages'}), response.status_code
-
-@app.route('/confluence/create_page', methods=['POST'])
-def create_confluence_page():
-    """Creates a new Confluence page"""
-    space_key = request.json.get('space_key', 'YOUR_SPACE_KEY')
-    title = request.json.get('title', 'New Page')
-    content = request.json.get('content', 'This is a test page.')
-
-    url = f"{CONFLUENCE_URL}/rest/api/content"
-    auth = (CONFLUENCE_USER, CONFLUENCE_API_TOKEN)
-    headers = {"Content-Type": "application/json"}
-    
-    data = {
-        "type": "page",
-        "title": title,
-        "space": {"key": space_key},
-        "body": {
-            "storage": {
-                "value": content,
-                "representation": "storage"
-            }
+# Create a Jira Issue
+@app.route('/jira/create_issue', methods=['POST'])
+def create_jira_issue():
+    data = request.json
+    issue_data = {
+        "fields": {
+            "project": {"key": data["project_key"]},
+            "summary": data["summary"],
+            "description": data["description"],
+            "issuetype": {"name": "Task"}
         }
     }
+    url = f"{JIRA_URL}/rest/api/3/issue"
+    response = requests.post(url, json=issue_data, auth=HTTPBasicAuth(JIRA_USER, JIRA_TOKEN))
+    if response.status_code == 201:
+        return jsonify({"message": "Jira issue created successfully"})
+    return jsonify({"error": "Failed to create Jira issue"}), 500
 
-    response = requests.post(url, auth=auth, headers=headers, json=data)
-    if response.status_code == 200 or response.status_code == 201:
-        return jsonify({'message': f'Confluence page "{title}" created successfully!'})
-    
-    return jsonify({'error': 'Failed to create Confluence page'}), response.status_code
+# ===========================
+# BITBUCKET API Endpoints
+# ===========================
+
+# Get Bitbucket Repositories
+@app.route('/bitbucket/repos', methods=['GET'])
+def get_bitbucket_repos():
+    url = f"{BITBUCKET_URL}/repositories/{BITBUCKET_USER}"
+    response = requests.get(url, auth=HTTPBasicAuth(BITBUCKET_USER, BITBUCKET_TOKEN))
+    if response.status_code == 200:
+        repos = [repo["name"] for repo in response.json().get("values", [])]
+        return jsonify({"repositories": repos})
+    return jsonify({"error": "Failed to fetch Bitbucket repositories"}), 500
+
+# Create Bitbucket Branch
+@app.route('/bitbucket/create_branch', methods=['POST'])
+def create_bitbucket_branch():
+    data = request.json
+    repo_slug = data["repo_slug"]
+    branch_name = data["branch_name"]
+    base_branch = data["base_branch"]
+
+    url = f"{BITBUCKET_URL}/repositories/{BITBUCKET_USER}/{repo_slug}/refs/branches"
+    payload = {
+        "name": branch_name,
+        "target": {"hash": base_branch}
+    }
+
+    response = requests.post(url, json=payload, auth=HTTPBasicAuth(BITBUCKET_USER, BITBUCKET_TOKEN))
+    if response.status_code == 201:
+        return jsonify({"message": "Branch created successfully"})
+    return jsonify({"error": "Failed to create branch"}), 500
+
+# ===========================
+# JENKINS API Endpoints
+# ===========================
+
+# Get Jenkins Jobs
+@app.route('/jenkins/jobs', methods=['GET'])
+def get_jenkins_jobs():
+    response = requests.get(f"{JENKINS_URL}/api/json", auth=(JENKINS_USER, JENKINS_TOKEN))
+    if response.status_code == 200:
+        jobs = [job["name"] for job in response.json().get("jobs", [])]
+        return jsonify({"jobs": jobs})
+    return jsonify({"error": "Failed to fetch Jenkins jobs"}), 500
+
+# Trigger Jenkins Build
+@app.route('/jenkins/build', methods=['POST'])
+def trigger_jenkins_build():
+    job_name = request.json.get("job_name")
+    response = requests.post(f"{JENKINS_URL}/job/{job_name}/build", auth=(JENKINS_USER, JENKINS_TOKEN))
+    if response.status_code == 201:
+        return jsonify({"message": f"Build triggered for {job_name}"})
+    return jsonify({"error": "Failed to trigger Jenkins job"}), 500
+
+# ===========================
+# CONFLUENCE API Endpoints
+# ===========================
+
+# Get Confluence Pages
+@app.route('/confluence/pages', methods=['GET'])
+def get_confluence_pages():
+    response = requests.get(f"{CONFLUENCE_URL}/rest/api/content", auth=HTTPBasicAuth(CONFLUENCE_USER, CONFLUENCE_TOKEN))
+    if response.status_code == 200:
+        pages = [page["title"] for page in response.json().get("results", [])]
+        return jsonify({"pages": pages})
+    return jsonify({"error": "Failed to fetch Confluence pages"}), 500
+
+# Create Confluence Page
+@app.route('/confluence/create_page', methods=['POST'])
+def create_confluence_page():
+    data = request.json
+    title = data["title"]
+    content = data["content"]
+
+    payload = {
+        "type": "page",
+        "title": title,
+        "space": {"key": "YOUR_SPACE_KEY"},
+        "body": {"storage": {"value": content, "representation": "storage"}}
+    }
+
+    response = requests.post(
+        f"{CONFLUENCE_URL}/rest/api/content",
+        json=payload,
+        auth=HTTPBasicAuth(CONFLUENCE_USER, CONFLUENCE_TOKEN),
+        headers={"Content-Type": "application/json"}
+    )
+
+    if response.status_code in [200, 201]:
+        return jsonify({"message": "Page created successfully"})
+    return jsonify({"error": "Failed to create Confluence page"}), 500
+
+# ===========================
+# Chat History Storage
+# ===========================
+
+def store_chat(user_message, bot_response):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO chats (user_message, bot_response) VALUES (?, ?)", (user_message, bot_response))
+    conn.commit()
+    conn.close()
+
+@app.route('/chat_history', methods=['GET'])
+def get_chat_history():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_message, bot_response FROM chats ORDER BY id DESC LIMIT 10")
+    chats = cursor.fetchall()
+    conn.close()
+    return jsonify({"history": [{"user": c[0], "bot": c[1]} for c in chats]})
+
+# ===========================
+# Run Flask App
+# ===========================
 
 if __name__ == '__main__':
     app.run(debug=True)
-
