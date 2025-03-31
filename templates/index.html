@@ -4,113 +4,223 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DevOps Chatbot</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/js/all.min.js"></script>
     <style>
+        /* Chatbot UI Styling */
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Arial', sans-serif;
         }
-        #chat-box {
+
+        #chat-window {
             position: fixed;
-            bottom: 10px;
-            right: 10px;
-            width: 300px;
-            height: 400px;
-            background: #fff;
-            border: 1px solid #ccc;
+            bottom: 20px;
+            right: 20px;
+            width: 350px;
+            height: 500px;
+            background: white;
             border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+            display: none;
+            overflow: hidden;
+            z-index: 9999;
+            border: 1px solid #ccc;
+        }
+
+        #chat-header {
+            background: #007bff;
+            color: white;
+            padding: 12px;
+            text-align: center;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 10px 10px 0 0;
+        }
+
+        #chat-body {
+            height: 380px;
+            overflow-y: auto;
+            padding: 10px;
+            background: #f9f9f9;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-message {
+            padding: 10px;
+            border-radius: 10px;
+            margin: 5px 0;
+            max-width: 75%;
+            font-size: 14px;
+            line-height: 1.4;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        .bot-message {
+            background: #e3e3e3;
+            align-self: flex-start;
+        }
+
+        .user-message {
+            background: #007bff;
+            color: white;
+            align-self: flex-end;
+        }
+
+        .chat-input {
+            display: flex;
+            padding: 8px;
+            border-top: 1px solid #ddd;
+            background: white;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            outline: none;
+        }
+
+        .chat-input button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+            margin-left: 5px;
+            border-radius: 5px;
+        }
+
+        .show-chat-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 9999;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .typing-indicator {
+            font-size: 12px;
+            color: gray;
             display: none;
         }
-        #chat-header {
-            background-color: #007bff;
-            color: white;
-            padding: 10px;
-            border-radius: 10px 10px 0 0;
-            text-align: center;
-        }
-        #messages {
-            padding: 10px;
-            height: 300px;
-            overflow-y: auto;
-        }
-        #message-input {
-            width: 100%;
-            padding: 10px;
-            border: none;
-            border-top: 1px solid #ccc;
-        }
-        #open-chat-btn {
-            position: fixed;
-            bottom: 10px;
-            right: 10px;
-            background-color: #007bff;
-            color: white;
-            padding: 15px;
-            border-radius: 50%;
-            cursor: pointer;
-        }
-        .tool-btn {
-            margin: 5px;
-        }
-        .sub-option-btn {
-            margin: 5px;
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 </head>
 <body>
 
-    <div id="chat-box">
-        <div id="chat-header">DevOps Chatbot</div>
-        <div id="messages"></div>
-        <input id="message-input" type="text" placeholder="Type a message..." onkeyup="if(event.keyCode == 13) sendMessage()">
+<!-- Chat Toggle Button -->
+<button class="show-chat-btn" onclick="toggleChatWindow()">
+    <i class="fas fa-comment"></i>
+</button>
+
+<!-- Chat Window -->
+<div id="chat-window">
+    <div id="chat-header" onclick="toggleChatWindow()">DevOps Chatbot</div>
+    <div id="chat-body"></div>
+    <div class="typing-indicator">Typing...</div>
+    <div class="chat-input">
+        <input type="text" id="user-input" placeholder="Type a message..." onkeypress="handleUserInput(event)">
+        <button onclick="processUserInput()">Send</button>
     </div>
+</div>
 
-    <div id="open-chat-btn" onclick="toggleChat()">💬</div>
+<script>
+    const menuStructure = {
+        'jenkins': { 'options': ['Build Job', 'Pipeline', 'Plugins'] },
+        'jira': { 'options': ['Issues', 'Boards', 'Projects'] },
+        'bitbucket': { 'options': ['Repositories', 'Pull Requests', 'Branches'] },
+        'confluence': { 'options': ['Spaces', 'Pages', 'Templates'] }
+    };
 
-    <div id="tool-options" style="position: fixed; bottom: 100px; right: 10px;">
-        <button class="btn btn-primary tool-btn" onclick="selectTool('jenkins')">Jenkins</button>
-        <button class="btn btn-success tool-btn" onclick="selectTool('jira')">Jira</button>
-        <button class="btn btn-info tool-btn" onclick="selectTool('bitbucket')">Bitbucket</button>
-        <button class="btn btn-warning tool-btn" onclick="selectTool('confluence')">Confluence</button>
-    </div>
+    let chatHistory = JSON.parse(localStorage.getItem('chatHistory')) || [];
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>
-        function toggleChat() {
-            $('#chat-box').toggle();
+    function toggleChatWindow() {
+        let chatWindow = document.getElementById('chat-window');
+        chatWindow.style.display = chatWindow.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function addMessage(text, sender) {
+        let chatBody = document.getElementById('chat-body');
+        let messageDiv = document.createElement('div');
+        messageDiv.classList.add('chat-message', sender === 'bot' ? 'bot-message' : 'user-message');
+        messageDiv.innerHTML = text;
+        chatBody.appendChild(messageDiv);
+        chatBody.scrollTop = chatBody.scrollHeight;
+
+        chatHistory.push({ text, sender });
+        localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
+    }
+
+    function showTypingIndicator() {
+        document.querySelector('.typing-indicator').style.display = 'block';
+    }
+
+    function hideTypingIndicator() {
+        document.querySelector('.typing-indicator').style.display = 'none';
+    }
+
+    function processUserInput() {
+        let inputField = document.getElementById('user-input');
+        let userText = inputField.value.trim().toLowerCase();
+        if (userText === '') return;
+
+        addMessage(userText, 'user');
+        inputField.value = '';
+        showTypingIndicator();
+
+        setTimeout(() => {
+            hideTypingIndicator();
+            handleBotResponse(userText);
+        }, 1000);
+    }
+
+    function handleUserInput(event) {
+        if (event.key === 'Enter') {
+            processUserInput();
         }
+    }
 
-        function sendMessage() {
-            var message = $('#message-input').val();
-            $('#message-input').val('');
-            if (message.trim()) {
-                $('#messages').append('<div><strong>You:</strong> ' + message + '</div>');
-                $.post('/get_options', { tool: message.toLowerCase() }, function(data) {
-                    $('#messages').append('<div><strong>Bot:</strong> Here are your options: </div>');
-                    data.options.forEach(function(option) {
-                        $('#messages').append('<button class="btn btn-secondary sub-option-btn" onclick="getSubOptions(\'' + message.toLowerCase() + '\', \'' + option + '\')">' + option + '</button>');
-                    });
-                });
+    function handleBotResponse(userInput) {
+        let response = "I didn't understand that. Try again!";
+        Object.keys(menuStructure).forEach(tool => {
+            if (userInput.includes(tool)) {
+                response = `You chose ${tool}. What would you like to do?`;
+                updateChatButtons(menuStructure[tool].options, tool);
             }
-        }
+        });
 
-        function selectTool(tool) {
-            $.post('/get_options', { tool: tool }, function(data) {
-                $('#messages').html('<div><strong>Bot:</strong> You have selected ' + tool.charAt(0).toUpperCase() + tool.slice(1) + '. Please select an option below:</div>');
-                data.options.forEach(function(option) {
-                    $('#messages').append('<button class="btn btn-secondary sub-option-btn" onclick="getSubOptions(\'' + tool + '\', \'' + option + '\')">' + option + '</button>');
-                });
-            });
-        }
+        addMessage(response, 'bot');
+    }
 
-        function getSubOptions(tool, option) {
-            $.post('/get_sub_options', { tool: tool, option: option }, function(data) {
-                $('#messages').append('<div><strong>Bot:</strong> Here are the sub-options for ' + option + ':</div>');
-                data.sub_options.forEach(function(sub_option) {
-                    $('#messages').append('<div>' + sub_option + '</div>');
-                });
-            });
-        }
-    </script>
+    function updateChatButtons(options, tool) {
+        options.forEach(option => {
+            let button = document.createElement('button');
+            button.classList.add('chat-btn');
+            button.innerText = option;
+            button.onclick = () => addMessage(option, 'user');
+            document.getElementById('chat-body').appendChild(button);
+        });
+    }
+
+    function loadChatHistory() {
+        chatHistory.forEach(({ text, sender }) => addMessage(text, sender));
+    }
+
+    loadChatHistory();
+</script>
+
 </body>
 </html>
