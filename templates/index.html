@@ -52,6 +52,9 @@
         .tool-btn {
             margin: 5px;
         }
+        .sub-option-btn {
+            margin: 5px;
+        }
     </style>
 </head>
 <body>
@@ -82,21 +85,30 @@
             $('#message-input').val('');
             if (message.trim()) {
                 $('#messages').append('<div><strong>You:</strong> ' + message + '</div>');
-                $.post('/get_response', { message: message }, function(data) {
-                    $('#messages').append('<div><strong>Bot:</strong> ' + data.response + '</div>');
+                $.post('/get_options', { tool: message.toLowerCase() }, function(data) {
+                    $('#messages').append('<div><strong>Bot:</strong> Here are your options: </div>');
+                    data.options.forEach(function(option) {
+                        $('#messages').append('<button class="btn btn-secondary sub-option-btn" onclick="getSubOptions(\'' + message.toLowerCase() + '\', \'' + option + '\')">' + option + '</button>');
+                    });
                 });
             }
         }
 
         function selectTool(tool) {
-            $.ajax({
-                url: '/get_response',
-                method: 'POST',
-                data: JSON.stringify({ message: tool }),
-                contentType: 'application/json',
-                success: function(data) {
-                    $('#messages').append('<div><strong>Bot:</strong> ' + data.response + '</div>');
-                }
+            $.post('/get_options', { tool: tool }, function(data) {
+                $('#messages').html('<div><strong>Bot:</strong> You have selected ' + tool.charAt(0).toUpperCase() + tool.slice(1) + '. Please select an option below:</div>');
+                data.options.forEach(function(option) {
+                    $('#messages').append('<button class="btn btn-secondary sub-option-btn" onclick="getSubOptions(\'' + tool + '\', \'' + option + '\')">' + option + '</button>');
+                });
+            });
+        }
+
+        function getSubOptions(tool, option) {
+            $.post('/get_sub_options', { tool: tool, option: option }, function(data) {
+                $('#messages').append('<div><strong>Bot:</strong> Here are the sub-options for ' + option + ':</div>');
+                data.sub_options.forEach(function(sub_option) {
+                    $('#messages').append('<div>' + sub_option + '</div>');
+                });
             });
         }
     </script>
